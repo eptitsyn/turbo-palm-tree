@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - feature/**
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  test:
+    name: Lint & Test (uv + Python)
+    runs-on: ubuntu-latest
+
+    env:
+      UV_SYSTEM_PYTHON: 1
+
+    steps:
+      - name: 🧾 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: 📦 Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: ⚙️ Cache uv & virtualenv
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            .uv
+          key: uv-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: 📚 Install dependencies with uv
+        run: |
+          uv sync --all-extras --dev
+
+      - name: 🧹 Lint with ruff
+        run: |
+          uv run ruff check .
+
+      - name: 🔍 Type-check with mypy
+        run: |
+          uv run mypy app
+
+      - name: ✅ Run tests
+        run: |
+          uv run pytest -q
