@@ -1,4 +1,5 @@
 """
 Database package.
 """
-from .session import engine, SessionLocal, get_db  # noqa: F401
+
+from .session import SessionLocal, engine, get_db  # noqa: F401
