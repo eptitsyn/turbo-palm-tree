@@ -8,9 +8,6 @@ from app.db.session import get_db
 from app.main import app
 
 
-# -----------------------------------------------------------------------------
-# Test database (in-memory SQLite for speed)
-# -----------------------------------------------------------------------------
 TEST_DATABASE_URL = "sqlite+pysqlite:///:memory:"
 
 
@@ -28,10 +25,6 @@ def SessionTesting(engine):
 
 @pytest.fixture()
 def db(SessionTesting):
-    """
-    Provides a fresh database session per test.
-    Rolls back changes after each test.
-    """
     session = SessionTesting()
     try:
         yield session
@@ -39,9 +32,6 @@ def db(SessionTesting):
         session.close()
 
 
-# -----------------------------------------------------------------------------
-# Dependency override: FastAPI uses test DB instead of real Postgres
-# -----------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def override_get_db(db):
     def _get_db_override():
@@ -55,9 +45,6 @@ def override_get_db(db):
     app.dependency_overrides.clear()
 
 
-# -----------------------------------------------------------------------------
-# FastAPI Test Client
-# -----------------------------------------------------------------------------
 @pytest.fixture()
 def client():
     with TestClient(app) as c:
