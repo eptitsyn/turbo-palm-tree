@@ -1,0 +1,84 @@
+# ---------------------------------------------------------
+# Python & build files
+# ---------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyi
+
+# venvs
+.venv/
+venv/
+ENV/
+env/
+
+# build directories
+build/
+dist/
+site/
+wheelhouse/
+
+# coverage
+.coverage
+htmlcov/
+.coverage.*
+
+.mypy_cache
+
+# ---------------------------------------------------------
+# Project-specific local data
+# ---------------------------------------------------------
+logs/
+tmp/
+cache/
+data/
+notebooks/
+
+# Local LLM / HF cache directories — never inside image
+models/
+weights/
+huggingface_cache/
+transformers_cache/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+
+# Qdrant / Redis / Postgres local volumes
+qdrant_data/
+redis_data/
+postgres_data/
+
+# ---------------------------------------------------------
+# Environment & secrets
+# ---------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------
+# SCM metadata
+# ---------------------------------------------------------
+.git
+.gitignore
+.gitmodules
+.gitattributes
+
+# ---------------------------------------------------------
+# Editor files
+# ---------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.bak
+*.tmp
+*.sublime-project
+*.sublime-workspace
+
+# ---------------------------------------------------------
+# OS crap
+# ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini

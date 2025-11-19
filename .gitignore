@@ -1,0 +1,135 @@
+# -------------------------------------------------------------------
+# Python basics
+# -------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+.eggs/
+
+# Byte-compiled / optimized / Cython / mypy
+*.c
+*.cpp
+*.coverage
+*.prof
+*.pyi
+.mypy_cache/
+.dmypy.json
+cython_debug/
+
+# Poetry / Pip / Virtualenv
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+pip-log.txt
+
+.mypy_cache
+
+# -------------------------------------------------------------------
+# Project build & cache dirs
+# -------------------------------------------------------------------
+.cache/
+.coverage
+htmlcov/
+dist/
+build/
+site/
+
+# CrewAI / LangChain cache (if you use them)
+.lc_cache/
+.lc_logs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoint
+
+# -------------------------------------------------------------------
+# FastAPI / Uvicorn logs
+# -------------------------------------------------------------------
+logs/
+*.log
+
+# -------------------------------------------------------------------
+# Alembic
+# -------------------------------------------------------------------
+alembic/versions/*__pycache__/
+# Keep versions/*.py — migrations themselves must be tracked
+# but ignore temporary files
+alembic/versions/*.pyc
+alembic/versions/*.pyo
+
+# -------------------------------------------------------------------
+# Editor / IDE configs
+# -------------------------------------------------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# JetBrains
+*.iml
+*.ipr
+*.iws
+out/
+
+# -------------------------------------------------------------------
+# OS-generated junk
+# -------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -------------------------------------------------------------------
+# Environment files and secrets
+# -------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# -------------------------------------------------------------------
+# Docker / Compose
+# -------------------------------------------------------------------
+# Ignore Docker volumes for local development
+docker/data/
+docker/volumes/
+docker-compose.override.yml
+
+# Local Qdrant / Redis / Postgres volumes
+qdrant_data/
+redis_data/
+postgres_data/
+
+# Docker build caches
+**/Dockerfile.*.tmp
+**/docker-cache/
+**/.dockerignore~
+
+# -------------------------------------------------------------------
+# Local LLM models / weights (huggingface / llama.cpp)
+# -------------------------------------------------------------------
+models/
+weights/
+*.bin
+*.gguf
+*.pt
+*.safetensors
+
+# Tokenizers & HF caches
+~/.cache/huggingface/
+huggingface_cache/
+transformers_cache/
+
+# -------------------------------------------------------------------
+# Misc
+# -------------------------------------------------------------------
+*.swp
+*.bak
+*.tmp
+
+# ignore anything accidentally put into tmp/
+tmp/
