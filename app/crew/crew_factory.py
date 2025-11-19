@@ -1,5 +1,5 @@
 # app/crew/crew_factory.py
-from typing import Any, Dict, List
+from typing import Any
 
 from crewai import Crew
 
@@ -23,7 +23,7 @@ def create_review_crew() -> Crew:
     return crew
 
 
-def run_file_diff_review(diff_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
     """
     High-level helper used by Celery task.
     diff_context should include at least:

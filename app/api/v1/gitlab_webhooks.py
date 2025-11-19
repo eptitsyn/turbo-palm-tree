@@ -6,6 +6,7 @@ from app.config import settings
 from app.db.session import get_db
 from app.workers.tasks.review_tasks import review_merge_request
 
+
 router = APIRouter(prefix="/gitlab", tags=["gitlab"])
 
 

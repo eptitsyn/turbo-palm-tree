@@ -26,10 +26,15 @@ upgrade:
 lint:
 	$(UV) run ruff check app tests
 
+.PHONY: fix
+fix:
+	$(UV) run ruff check app tests --fix
+	$(UV) run ruff format app tests
+
+# Legacy "format" target → now uses Ruff (Google style)
 .PHONY: format
 format:
-	$(UV) run black app tests
-	$(UV) run isort app tests
+	$(UV) run ruff format app tests
 
 .PHONY: typecheck
 typecheck:
