@@ -59,12 +59,9 @@ ignore = [
     "PLR2004", # magic value in comparison
 ]
 
-# Treat these as "fixable" by `ruff --fix`
+# Treat these as "fixable" by `ruff check --fix`
 fixable = ["ALL"]
 unfixable = []
-
-# Show full paths in output
-show-fixes = true
 
 # ============================================================
 # Per-file ignores
@@ -90,7 +87,7 @@ show-fixes = true
     "RUF003",
 ]
 
-# Entry points / scripts may use prints
+# Entry point may use prints
 "app/main.py" = [
     "T201",    # print in code
 ]
@@ -128,5 +125,4 @@ ban-relative-imports = "parents"
 # Security (flake8-bandit subset via S codes)
 # ============================================================
 [lint.flake8-bandit]
-# In a private contour some checks may be a bit noisy, but it's good to keep them.
-# You can tune here later if Bandit warnings are too strict.
+# You can tune these later if Bandit-style warnings are too strict.
