@@ -1,0 +1,65 @@
+{
+  "name": "AI Code Reviewer (Dev)",
+  "dockerComposeFile": [
+    "../docker-compose.dev.yml"
+  ],
+  "service": "api-dev",
+
+  // Workspace folder inside container
+  "workspaceFolder": "/app",
+
+  // Wait for Python dependencies to load
+  "postCreateCommand": "uv sync --all-extras --dev",
+
+  // VSCode Extensions for Python, linting, FastAPI, Docker, debugging
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "ms-azuretools.vscode-docker",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "visualstudioexptteam.vscodeintellicode",
+        "mhutchie.git-graph",
+        "bierner.markdown-preview-github-styles",
+        "ms-toolsai.jupyter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/app/.venv/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.formatting.provider": "none",
+        "python.analysis.typeCheckingMode": "basic",
+        "ruff.lint.run": "onType",
+        "editor.formatOnSave": true
+      }
+    }
+  },
+
+  // VSCode settings for debugging & terminal
+  "containerEnv": {
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONPATH": "/app"
+  },
+
+  // Mount local .env and workspace
+  "mounts": [
+    "source=${localWorkspaceFolder}/.env,target=/app/.env,type=bind"
+  ],
+
+  // Enable Docker-in-Docker use for debugging worker + API
+  "features": {},
+
+  // Use docker compose for correct port mappings
+  "forwardPorts": [
+    8000,   // FastAPI
+    5678,   // API debugger
+    5679,   // Celery debugger
+    6333,   // Qdrant REST
+    5432,   // Postgres
+    6379    // Redis
+  ],
+
+  "remoteUser": "appuser"
+}
