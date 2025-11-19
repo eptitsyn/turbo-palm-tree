@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # DB
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_PASSWORD: str  # must come from env
     POSTGRES_DB: str = "ai_code_review"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
@@ -22,13 +22,13 @@ class Settings(BaseSettings):
 
     # GitLab
     GITLAB_BASE_URL: str = "https://gitlab.example.com"
-    GITLAB_TOKEN: str = "CHANGE_ME"
-    GITLAB_WEBHOOK_SECRET: str = "CHANGE_ME"
+    GITLAB_TOKEN: str  # must come from env
+    GITLAB_WEBHOOK_SECRET: str  # must come from env
 
     # LLM / crewAI
     LLM_MODEL_NAME: str = "local-llm"
     LLM_API_BASE: str = "http://localhost:8001"  # e.g. vLLM / TGI
-    LLM_API_KEY: str = "dummy"  # for OpenAI-compatible interfaces
+    LLM_API_KEY: str | None = None  # or force via env too
 
     class Config:
         env_file = ".env"
