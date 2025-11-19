@@ -8,10 +8,6 @@ from app.crew.tasks import create_file_diff_review_task
 
 
 def create_review_crew() -> Crew:
-    """
-    Construct a simple crew with a single code reviewer agent
-    and a single task for per-file diff review.
-    """
     reviewer = create_code_reviewer_agent()
     review_task = create_file_diff_review_task()
 
@@ -24,46 +20,49 @@ def create_review_crew() -> Crew:
 
 def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
     """
-    High-level helper used by Celery task.
-    diff_context should include at least:
-      - file_path
-      - language
-      - diff
-      - old_code
-      - new_code
+    Execute the crew on a diff context and return structured findings.
 
-    For MVP this just calls crew.kickoff and assumes the
-    result is a JSON list of findings. Later you can make
-    it more robust and add validation.
+    Always returns a list of dicts for mypy compatibility.
     """
-    crew = create_review_crew()
 
-    # crewAI works with inputs via tasks; simplest way is to
-    # set the context on the crew or pass as input variable.
-    # Here we assume the only task expects `diff_context` input.
+    crew = create_review_crew()
     result = crew.kickoff(inputs={"diff_context": diff_context})
 
-    # For the MVP, if result is string, pretend it's JSON-ish;
-    # real implementation: parse JSON and validate.
+    # String → wrap into a one-item findings list
     if isinstance(result, str):
-        # TODO: replace with json.loads + schema validation
         return [
             {
                 "severity": "info",
-                "summary": "Dummy result from string output",
+                "summary": "Crew returned a raw string",
                 "raw_output": result,
             }
         ]
 
+    # Dict → extract findings
     if isinstance(result, dict):
-        # Provide a loose default convention: result["findings"]
-        return result.get("findings", [])
+        findings = result.get("findings", None)
 
-    # Last fallback: wrap result in a single finding
+        if isinstance(findings, list):
+            out: list[dict[str, Any]] = []
+            for item in findings:
+                if isinstance(item, dict):
+                    out.append(item)
+            return out
+
+        # Unexpected "findings"
+        return [
+            {
+                "severity": "info",
+                "summary": "Unexpected 'findings' format in crew output",
+                "raw_output": str(findings),
+            }
+        ]
+
+    # Completely unexpected type
     return [
         {
             "severity": "info",
-            "summary": "Unexpected output type from crew",
+            "summary": "Crew returned unsupported output type",
             "raw_output": str(result),
         }
     ]

@@ -42,7 +42,7 @@ typecheck:
 
 .PHONY: test
 test:
-	$(UV) run pytest -q
+	TESTING=1 $(UV) run pytest -q
 
 .PHONY: check
 check: lint typecheck test

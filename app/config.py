@@ -1,18 +1,25 @@
 # app/config.py
 from functools import lru_cache
+from typing import ClassVar
 
-from pydantic import AnyHttpUrl
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
     # FastAPI
     APP_ENV: str = "dev"
-    CORS_ALLOW_ORIGINS: list[AnyHttpUrl] | list[str] = ["*"]
+    CORS_ALLOW_ORIGINS: list[str] = ["*"]
 
     # DB
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str  # must come from env
+    POSTGRES_PASSWORD: str  # must come from environment
     POSTGRES_DB: str = "ai_code_review"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
@@ -26,18 +33,15 @@ class Settings(BaseSettings):
     GITLAB_TOKEN: str  # must come from env
     GITLAB_WEBHOOK_SECRET: str  # must come from env
 
-    # LLM / crewAI
+    # LLM
     LLM_MODEL_NAME: str = "local-llm"
-    LLM_API_BASE: str = "http://localhost:8001"  # e.g. vLLM / TGI
-    LLM_API_KEY: str | None = None  # or force via env too
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    LLM_API_BASE: str = "http://localhost:8001"
+    LLM_API_KEY: str | None = None
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    # mypy is fine with this now; no ignore needed
     return Settings()
 
 

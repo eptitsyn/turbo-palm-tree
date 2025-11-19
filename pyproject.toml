@@ -50,7 +50,6 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.5",
     "mypy>=1.10",
-    "black>=24.0",
     "isort>=5.13",
 ]
 
@@ -72,19 +71,44 @@ exclude = ["alembic/"]
 pythonpath = ["app"]
 addopts = "--cov=app --cov-report=term-missing"
 
+# ------ mypy ------
 [tool.mypy]
 python_version = "3.11"
+
+# Tell mypy where your code package lives
 packages = ["app"]
 explicit_package_bases = true
-ignore_missing_imports = false
 
-[[tool.mypy.overrides]]
-module = [
-  "celery",
-  "celery.*",
-  "crewai",
-  "crewai.*",
-  "langchain",
-  "langchain.*",
-]
+# How strict?
+# This is "medium strict": catches real bugs but doesn't make you suffer.
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+
+no_implicit_optional = true
+
+# Don't force annotations everywhere yet (good for a growing project).
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+
+# External libs: be pragmatic.
+# If some third-party libs don't ship stubs, we don't want CI red all the time.
 ignore_missing_imports = true
+
+# Misc quality-of-life
+pretty = true
+show_error_codes = true
+show_column_numbers = true
+
+# ---------------------------------------------------------------------
+# Plugin: Pydantic (v1/v2) – helps with BaseModel / BaseSettings typing
+# ---------------------------------------------------------------------
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
