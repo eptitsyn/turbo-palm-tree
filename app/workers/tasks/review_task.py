@@ -1,6 +1,6 @@
 # app/workers/tasks/review_tasks.py
-from app.workers.celery_app import celery_app
 from app.crew.crew_factory import run_file_diff_review
+from app.workers.celery_app import celery_app
 
 
 @celery_app.task(name="review_merge_request")

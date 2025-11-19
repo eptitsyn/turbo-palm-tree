@@ -17,6 +17,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     from sqlalchemy.orm import Session
+
     db: Session = SessionLocal()
     try:
         yield db
