@@ -1,4 +1,4 @@
 # app/api/v1/__init__.py
-from . import health, gitlab_webhooks  # noqa
+from . import gitlab_webhooks, health  # noqa
 
 __all__ = ["health", "gitlab_webhooks"]

@@ -1,5 +1,5 @@
 # app/api/v1/gitlab_webhooks.py
-from fastapi import APIRouter, Request, Header, HTTPException, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.config import settings
