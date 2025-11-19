@@ -9,7 +9,8 @@
 
 ## 🔍🤖 Automated AI Code Review for GitLab
 
-### **FastAPI + Celery + PostgreSQL + Qdrant + crewAI + Local LLMs**
+### **FastAPI + Celery + PostgreSQL + Qdrant + crewAI + Local LLMs**  
+
 Offline-first • Agent-driven • Extensible • Private-Cloud Friendly
 
 ---
@@ -17,7 +18,7 @@ Offline-first • Agent-driven • Extensible • Private-Cloud Friendly
 ### 🔰 Badges
 
 ![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3-blue.svg)
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.112+-green)
 ![Celery](https://img.shields.io/badge/Celery-5.3+-yellowgreen)
 ![PostgreSQL](https://img.shields.io/badge/Postgres-14+-blue)
