@@ -95,3 +95,42 @@ clean:
 
 .PHONY: dev
 dev: install
+
+# --------------------------------------------------------------------
+# Docker Dev Environment
+# --------------------------------------------------------------------
+
+DEV_COMPOSE := docker compose -f docker-compose.dev.yml
+
+.PHONY: dev-up
+dev-up:
+	$(DEV_COMPOSE) up --build -d
+	@echo "🚀 Dev environment is up!"
+	@echo "API:    http://localhost:8000"
+	@echo "Debug:  localhost:5678 (API), localhost:5679 (Worker)"
+
+.PHONY: dev-down
+dev-down:
+	$(DEV_COMPOSE) down --remove-orphans
+	@echo "🛑 Dev environment stopped"
+
+.PHONY: dev-build
+dev-build:
+	$(DEV_COMPOSE) build
+	@echo "🔨 Dev images rebuilt"
+
+.PHONY: dev-logs
+dev-logs:
+	$(DEV_COMPOSE) logs -f
+
+.PHONY: dev-api-shell
+dev-api-shell:
+	$(DEV_COMPOSE) exec api-dev /bin/bash || $(DEV_COMPOSE) exec api-dev /bin/sh
+
+.PHONY: dev-worker-shell
+dev-worker-shell:
+	$(DEV_COMPOSE) exec worker-dev /bin/bash || $(DEV_COMPOSE) exec worker-dev /bin/sh
+
+.PHONY: dev-ps
+dev-ps:
+	$(DEV_COMPOSE) ps
