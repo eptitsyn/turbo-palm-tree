@@ -72,3 +72,19 @@ exclude = ["alembic/"]
 pythonpath = ["app"]
 addopts = "--cov=app --cov-report=term-missing"
 
+[tool.mypy]
+python_version = "3.11"
+packages = ["app"]
+explicit_package_bases = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+  "celery",
+  "celery.*",
+  "crewai",
+  "crewai.*",
+  "langchain",
+  "langchain.*",
+]
+ignore_missing_imports = true
