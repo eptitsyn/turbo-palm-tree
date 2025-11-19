@@ -1,8 +1,9 @@
 # app/db/session.py
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
+
 
 DATABASE_URL = (
     f"postgresql+psycopg2://{settings.POSTGRES_USER}:"
@@ -16,8 +17,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db():
-    from sqlalchemy.orm import Session
-
     db: Session = SessionLocal()
     try:
         yield db

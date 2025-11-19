@@ -12,7 +12,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
     )
 
-    # CORS – can be tightened / disabled in private contour
+    # CORS - can be tightened / disabled in private contour
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ALLOW_ORIGINS,
