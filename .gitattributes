@@ -1,0 +1,33 @@
+# Force LF for all text files
+* text=auto eol=lf
+
+# Treat Python files as text
+*.py text eol=lf
+
+# JSON / YAML
+*.json text
+*.yml  text
+*.yaml text
+
+# Markdown / configs
+*.md   text
+*.toml text
+*.cfg  text
+*.ini  text
+
+# Prevent diff on binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.bin binary
+*.pt binary
+*.gguf binary
+*.safetensors binary
+
+# Ignore diff for migration auto-generated headers
+alembic/versions/*.py -diff
+
+# Improve diff for Jupyter Notebooks (metadata-free diffs)
+*.ipynb filter=nbstripout
