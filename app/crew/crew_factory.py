@@ -15,12 +15,11 @@ def create_review_crew() -> Crew:
     reviewer = create_code_reviewer_agent()
     review_task = create_file_diff_review_task()
 
-    crew = Crew(
+    return Crew(
         agents=[reviewer],
         tasks=[review_task],
         verbose=False,
     )
-    return crew
 
 
 def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
