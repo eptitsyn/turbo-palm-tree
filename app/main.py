@@ -2,8 +2,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1 import gitlab_webhooks, health
 from app.config import settings
-from app.api.v1 import health, gitlab_webhooks
 
 
 def create_app() -> FastAPI:
