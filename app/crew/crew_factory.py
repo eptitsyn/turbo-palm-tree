@@ -9,7 +9,7 @@ from app.crew.tasks import create_file_diff_review_task
 
 def create_review_crew() -> Crew:
     reviewer = create_code_reviewer_agent()
-    review_task = create_file_diff_review_task()
+    review_task = create_file_diff_review_task(agent=reviewer)
 
     return Crew(
         agents=[reviewer],
@@ -26,7 +26,20 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
     """
 
     crew = create_review_crew()
-    result = crew.kickoff(inputs={"diff_context": diff_context})
+    try:
+        result = crew.kickoff(inputs={"diff_context": diff_context})
+    except Exception as exc:  # noqa: BLE001
+        return [
+            {
+                "severity": "major",
+                "summary": "Agent execution failed",
+                "description": (
+                    "The code review agent could not run. Ensure a compatible "
+                    "OpenAI-style LLM endpoint is available and credentials are set."
+                ),
+                "raw_output": str(exc),
+            }
+        ]
 
     # String → wrap into a one-item findings list
     if isinstance(result, str):

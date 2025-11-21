@@ -1,8 +1,8 @@
 # app/crew/tasks.py
-from crewai import Task
+from crewai import Agent, Task
 
 
-def create_file_diff_review_task() -> Task:
+def create_file_diff_review_task(agent: Agent | None = None) -> Task:
     """
     Task expects `diff_context` in inputs, which contains:
         - file_path
@@ -50,4 +50,5 @@ Return ONLY JSON with a top-level list of findings, for example:
         expected_output="A JSON array of findings as described above.",
         # name is optional but nice for logging
         name="file_diff_review",
+        agent=agent,
     )

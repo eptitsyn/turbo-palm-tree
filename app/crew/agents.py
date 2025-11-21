@@ -1,5 +1,5 @@
 # app/crew/agents.py
-from crewai import Agent
+from crewai import Agent, LLM
 
 from app.config import settings
 
@@ -10,6 +10,13 @@ def create_code_reviewer_agent() -> Agent:
     You will need to configure crewAI to use an OpenAI-compatible client
     pointing to your local inference server in your global setup.
     """
+    llm = LLM(
+        model=settings.LLM_MODEL_NAME,
+        api_key=settings.LLM_API_KEY,
+        base_url=settings.LLM_API_BASE,
+        temperature=0.0,
+    )
+
     return Agent(
         role="Senior Code Reviewer",
         goal=(
@@ -21,6 +28,5 @@ def create_code_reviewer_agent() -> Agent:
             "security, and maintainability in a large codebase."
         ),
         verbose=False,
-        # In crewAI >= 0.28 you can pass model provider config via env or kwargs
-        llm=settings.LLM_MODEL_NAME,  # adjust based on crewAI version
+        llm=llm,
     )
