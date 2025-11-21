@@ -19,7 +19,8 @@ class Settings(BaseSettings):
 
     # DB
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str  # must come from environment
+    # Defaults below are for local smoke tests only; override in real deployments.
+    POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "ai_code_review"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
@@ -30,13 +31,13 @@ class Settings(BaseSettings):
 
     # GitLab
     GITLAB_BASE_URL: str = "https://gitlab.example.com"
-    GITLAB_TOKEN: str  # must come from env
-    GITLAB_WEBHOOK_SECRET: str  # must come from env
+    GITLAB_TOKEN: str = "dev-token"
+    GITLAB_WEBHOOK_SECRET: str = "dev-secret"
 
     # LLM
     LLM_MODEL_NAME: str = "local-llm"
     LLM_API_BASE: str = "http://localhost:8001"
-    LLM_API_KEY: str | None = None
+    LLM_API_KEY: str = "dev-llm-key"
 
 
 @lru_cache(maxsize=1)

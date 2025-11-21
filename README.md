@@ -110,6 +110,12 @@ uv run uvicorn app.main:app --reload
 ```bash
 uv run celery -A app.workers.celery_app.celery_app worker --loglevel=INFO
 ```
+## ▶️ Minimal agent smoke test (no DB/GitLab required)
+```bash
+uv run python main.py
+```
+The script runs the crewAI-based reviewer against a hard-coded diff and prints the structured findings.
+
 ▶️ Run with Docker (coming soon)
 
 Dockerfile + docker-compose.yml will be added after core subsystems stabilize.
