@@ -6,7 +6,7 @@ def create_review_orchestration_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Ты координируешь ревью кода для одного diff_context.
+Ты координируешь ревью кода для MR целиком.
 
 Текущие входные данные:
 - project_id: {project_id}
@@ -15,19 +15,21 @@ def create_review_orchestration_task(
 - diff_context: {diff_context}
 
 Вход:
-- diff_context: {file_path, language, diff, old_code, new_code}
+- diff_context: {"changes": [...], ...}; каждая change имеет поля new_path/old_path/diff.
 - project_id: числовой/строковый ID проекта
 - mr_iid: IID merge request
 - project_path: путь проекта в GitLab (если есть)
 
 Твоя задача:
-- Дай короткий план, какие специализации смотрят на какие риски.
+- Выбери, какие файлы стоит анализировать (не бери каждый файл), обоснуй выбор.
+- Распредели файлы по агентам/специализациям.
 - Выдели самые рискованные зоны и вероятные сбои.
-- Оставь вывод машинно‑читаемым.
+- Оставь вывод машинно-читаемым.
 
 Вывод:
 Верни ТОЛЬКО JSON:
 {
+  "selected_files": ["path1", "path2"],
   "workplan": ["item 1", "item 2"],
   "risk_profile": "short text",
   "focus_areas": ["security", "testing", "performance"]
@@ -48,7 +50,7 @@ def create_context_builder_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Нормализуй diff_context в структурированный пакет для последующих агентов.
+Нормализуй diff_context MR в структурированный пакет для последующих агентов.
 
 Текущие входные данные:
 - project_id: {project_id}
@@ -57,10 +59,10 @@ def create_context_builder_task(
 - diff_context: {diff_context}
 
 Включи:
-- метаданные файла (путь, язык)
+- список изменений (changes), включи короткую статистику по каждому файлу
 - идентификаторы MR (project_id, mr_iid) и, если есть, repo_url/project_path
 - краткую цель изменений и область покрытия
-- быстрые риск‑заметки (security/perf/testing)
+- быстрые риск-заметки (security/perf/testing)
 - количество добавлений/удалений
 - если переданы project_id и mr_iid: дерни GitLab tool, чтобы получить контекст MR
   (метаданные, заметки) и включи это в вывод
@@ -70,16 +72,11 @@ def create_context_builder_task(
 Вывод:
 Верни ТОЛЬКО JSON:
 {
-  "file_path": "...",
-  "language": "...",
+  "changes": [{"file_path": "...", "language": "...", "stats": {"added_lines": int, "removed_lines": int}}],
   "project_id": 123,
   "mr_iid": 5,
   "change_summary": "...",
   "risk_notes": ["item"],
-  "stats": {"added_lines": int, "removed_lines": int},
-  "diff": "...",
-  "old_code": "...",
-  "new_code": "...",
   "signatures": [{"name": "...", "args": ["..."]}],
   "mr_context": {"title": "...", "notes": ["..."]}
 }
@@ -100,10 +97,10 @@ def create_static_analysis_task(
 Работай как сборщик статанализа. Если инструменты недоступны, рассуждай по diff.
 
 Вход:
-- diff_context и предоставленный контекст.
+- diff_context и предоставленный контекст (список changes). Сфокусируйся только на выбранных файлаx из orchestration.selected_files.
 
 Вывод:
-Верни ТОЛЬКО JSON‑список находок:
+Верни ТОЛЬКО JSON-список находок:
 [
   {
     "tool": "ruff|mypy|bandit|eslint|reasoned",
@@ -135,20 +132,15 @@ def create_file_diff_review_task(
         - old_code
         - new_code
 
-    Агент должен вернуть JSON‑список находок.
+    Агент должен вернуть JSON-список находок.
     В MVP строгую схему не навязываем.
     """
     description = """
-Тебе дано изменение кода (diff) одного файла.
+Тебе дан список изменений (changes). Не нужно анализировать каждый файл.
+Фокусируйся только на файлах, которые выбрал тимлид (orchestration.selected_files)
+или которые контекст подчёркивает как рискованные.
 
-Вход:
-- file_path: путь к файлу
-- language: язык программирования (например python, javascript)
-- diff: unified diff фрагмент
-- old_code: предыдущая версия
-- new_code: новая версия
-
-Твоя задача:
+Для каждого выбранного файла возьми его diff/old_code/new_code и:
 1. Найди проблемы корректности, безопасности, производительности, стиля и поддержки.
 2. На каждую проблему сформируй элемент:
    - severity: одно из ["info", "minor", "major", "critical"]
@@ -157,18 +149,8 @@ def create_file_diff_review_task(
    - suggested_fix: как исправить (опционально код)
 
 Вывод:
-Верни ТОЛЬКО JSON с верхнеуровневым списком находок, например:
-
-[
-  {
-    "severity": "major",
-    "summary": "Function does not handle None input",
-    "description": "...",
-    "suggested_fix": "..."
-  }
-]
+Верни ТОЛЬКО JSON-список находок (можно агрегировать по файлам в полях).
 """
-
     return Task(
         description=description,
         expected_output="A JSON array of findings as described above.",
@@ -183,7 +165,7 @@ def create_security_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Проведи ревью с фокусом на безопасность для diff_context.
+Проведи ревью с фокусом на безопасность для выбранных файлов (orchestration.selected_files).
 
 Учитывай:
 - auth/z, секреты, криптография, инъекции, SSRF, RCE, десериализация, песочница
@@ -191,7 +173,7 @@ def create_security_review_task(
 - эксплуатируемость и меры защиты
 
 Вывод:
-Верни ТОЛЬКО JSON‑список находок (severity, summary, description, suggested_fix).
+Верни ТОЛЬКО JSON-список находок (severity, summary, description, suggested_fix).
 """
     return Task(
         description=description,
@@ -206,7 +188,7 @@ def create_performance_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Проведи ревью производительности и надежности diff_context.
+Проведи ревью производительности и надежности выбранных файлов (orchestration.selected_files).
 
 Учитывай:
 - временная/пространственная сложность, горячие пути, IO, аллокации, кеш, векторизацию
@@ -214,7 +196,7 @@ def create_performance_review_task(
 - устойчивость: ретраи, таймауты, backpressure, утечки ресурсов
 
 Вывод:
-Верни ТОЛЬКО JSON‑список находок (severity, summary, description, suggested_fix).
+Верни ТОЛЬКО JSON-список находок (severity, summary, description, suggested_fix).
 """
     return Task(
         description=description,
@@ -229,7 +211,7 @@ def create_testing_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Проведи ревью тестирования и UX/API для diff_context.
+Проведи ревью тестирования и UX/API только для выбранных файлов (orchestration.selected_files).
 
 Учитывай:
 - отсутствующие или слабые тесты, флейки, границы, негативные сценарии
@@ -237,7 +219,7 @@ def create_testing_review_task(
 - пользовательские регрессии или пробелы в документации
 
 Вывод:
-Верни ТОЛЬКО JSON‑список находок (severity, summary, description, suggested_fix)
+Верни ТОЛЬКО JSON-список находок (severity, summary, description, suggested_fix)
 и добавь массив `suggested_tests`, когда уместно.
 """
     return Task(
@@ -275,8 +257,8 @@ def create_report_composer_task(
   ]
 }
 
-Если в inputs есть `project_id` и `mr_iid`, МОЖНО отправить короткую MR‑заметку
-через GitLab comment tool с топ‑находками. Держи ее лаконичной.
+Если в inputs есть `project_id` и `mr_iid`, МОЖНО отправить короткую MR-заметку
+через GitLab comment tool с топ-находками. Держи ее лаконичной.
 """
     return Task(
         description=description,

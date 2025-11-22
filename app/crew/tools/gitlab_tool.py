@@ -172,7 +172,7 @@ def post_merge_request_comment(
     timeout: float = 8.0,
 ) -> dict[str, Any]:
     """
-    Отправить обычную MR‑заметку.
+    Отправить обычную MR-заметку.
     Возвращает структурированный статус для агентов.
     """
     api_base = _api_base(base_url)

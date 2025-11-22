@@ -41,6 +41,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "tenacity>=8.2",
     "loguru>=0.7",
+    "json-repair>=0.54.1",
 ]
 
 [project.optional-dependencies]

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.crew.gitlab_notes import post_queue_note
 from app.db.session import get_db
 from app.workers.tasks.review_task import review_merge_request
 
@@ -31,6 +32,12 @@ async def gitlab_webhook(
         project_id = project["id"]
         mr_iid = mr["iid"]
         last_commit_sha = mr.get("last_commit", {}).get("id") or mr.get("last_commit_id")
+        queue_note = post_queue_note(project_id=project_id, mr_iid=mr_iid)
+        queue_note_id = None
+        if isinstance(queue_note, dict):
+            note = queue_note.get("note") or queue_note.get("data") or {}
+            if isinstance(note, dict):
+                queue_note_id = note.get("id") or note.get("note_id")
 
         # TODO: insert Project / MergeRequest / ReviewRequest into DB here
         # For now, call Celery with minimal info
@@ -38,6 +45,7 @@ async def gitlab_webhook(
             project_id=project_id,
             mr_iid=mr_iid,
             last_commit_sha=last_commit_sha,
+            progress_note_id=queue_note_id,
         )
         return {"status": "queued", "project_id": project_id, "mr_iid": mr_iid}
 

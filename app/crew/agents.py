@@ -9,7 +9,12 @@ from app.crew.tools.gitlab_tool import (
     fetch_merge_request_changes,
     fetch_merge_request_notes,
 )
-from app.crew.tools.repo_tool import clone_repository
+from app.crew.tools.repo_tool import (
+    clone_repository,
+    extract_python_signatures,
+    list_repository_files,
+)
+from app.config import settings
 
 
 @lru_cache(maxsize=1)
@@ -24,6 +29,7 @@ def _default_llm() -> LLM:
 
 
 def _make_agent(role: str, goal: str, backstory: str, **kwargs) -> Agent:
+    kwargs.setdefault("max_iter", settings.CREW_AGENT_MAX_ITER)
     return Agent(
         role=role,
         goal=goal,
@@ -75,7 +81,7 @@ class FetchMergeRequestNotesTool(BaseTool):
 class CloneRepositoryTool(BaseTool):
     name: str = "clone_repository"
     description: str = (
-        "Клонирует git‑репозиторий и (опционально) переключается на ref. "
+        "Загружает репозиторий во временную папку и (опционально) переключается на ref/commit. "
         "Аргументы: repo_url (обязателен), ref, dest_dir, depth."
     )
 
@@ -91,16 +97,45 @@ class CloneRepositoryTool(BaseTool):
         )
 
 
+class ListRepositoryFilesTool(BaseTool):
+    name: str = "list_repository_files"
+    description: str = (
+        "Возвращает список файлов репозитория (относительные пути). "
+        "Аргументы: repo_path, max_files=5000, include_hidden=false."
+    )
+
+    def _run(
+        self,
+        repo_path: str,
+        max_files: int = 5000,
+        include_hidden: bool = False,
+    ):
+        return list_repository_files(
+            repo_path=repo_path, max_files=max_files, include_hidden=include_hidden
+        )
+
+
+class ExtractPythonSignaturesTool(BaseTool):
+    name: str = "extract_python_signatures"
+    description: str = (
+        "Извлекает сигнатуры функций/методов/классов из Python-файла. "
+        "Аргументы: file_path."
+    )
+
+    def _run(self, file_path: str):
+        return extract_python_signatures(file_path)
+
+
 def create_review_orchestrator_agent() -> Agent:
     return _make_agent(
         role="Тимлид ревью MR",
         goal=(
             "Получить входной MR (project_id, mr_iid, project_path), быстро понять риск, "
-            "раскидать задачи по агентам и следить, чтобы вывод был в корректной JSON‑схеме."
+            "раскидать задачи по агентам и следить, чтобы вывод был в корректной JSON-схеме."
         ),
         backstory=(
-            "Ты тимлид команды AI‑ревьюеров: умеешь быстро читать метаданные MR, "
-            "ставить приоритеты и строго требуешь формального JSON‑вывода без воды."
+            "Ты тимлид команды AI-ревьюеров: умеешь быстро читать метаданные MR, "
+            "ставить приоритеты и строго требуешь формального JSON-вывода без воды."
         ),
         allow_delegation=False,
     )
@@ -122,6 +157,8 @@ def create_context_builder_agent() -> Agent:
             CloneRepositoryTool(),
             FetchMergeRequestChangesTool(),
             FetchMergeRequestNotesTool(),
+            ListRepositoryFilesTool(),
+            ExtractPythonSignaturesTool(),
         ],
     )
 
@@ -136,7 +173,7 @@ def create_static_analysis_agent() -> Agent:
         ),
         backstory=(
             "Ты интегратор инструментов: знаешь правила статанализа и выдаёшь единый "
-            "JSON‑формат для других агентов."
+            "JSON-формат для других агентов."
         ),
     )
 
@@ -166,7 +203,7 @@ def create_security_reviewer_agent() -> Agent:
             "пробелы в auth/z и рискованные зависимости. Вывод — JSON находок."
         ),
         backstory=(
-            "Ты миссек‑инженер и блю‑тимер: думаешь как атакующий, оцениваешь "
+            "Ты миссек-инженер и блю-тимер: думаешь как атакующий, оцениваешь "
             "эксплуатируемость и предлагаешь mitigations в JSON."
         ),
     )
@@ -180,7 +217,7 @@ def create_performance_reliability_agent() -> Agent:
             "утечки ресурсов и пробелы в устойчивости в diff/MR. Вывод — JSON находок."
         ),
         backstory=(
-            "Ты SRE/перф‑инженер: оптимизируешь throughput/latency, знаешь паттерны отказоустойчивости "
+            "Ты SRE/перф-инженер: оптимизируешь throughput/latency, знаешь паттерны отказоустойчивости "
             "и описываешь риски компактно."
         ),
     )
@@ -194,7 +231,7 @@ def create_testing_ux_reviewer_agent() -> Agent:
             "Вывод — JSON находок + предложенные тест-кейсы."
         ),
         backstory=(
-            "Ты QA/UX‑специалист: заботишься о проверяемости, пользовательских контрактах "
+            "Ты QA/UX-специалист: заботишься о проверяемости, пользовательских контрактах "
             "и качестве сообщений об ошибках."
         ),
     )

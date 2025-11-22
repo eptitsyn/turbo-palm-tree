@@ -30,6 +30,15 @@ def _summary_lines(
     return lines
 
 
+def post_queue_note(project_id: Any, mr_iid: Any) -> dict[str, Any] | None:
+    """Post a note indicating the review was queued."""
+    if not POST_GITLAB_PROGRESS_NOTE or not project_id or not mr_iid:
+        return None
+
+    body = "🤖 Задача ревью поставлена в очередь."
+    return post_merge_request_comment(project_id=project_id, mr_iid=mr_iid, body=body)
+
+
 def post_findings_note(
     project_id: Any,
     mr_iid: Any,
@@ -52,12 +61,18 @@ def post_findings_note(
     return post_merge_request_comment(project_id=project_id, mr_iid=mr_iid, body=body)
 
 
-def post_progress_note(project_id: Any, mr_iid: Any) -> dict[str, Any] | None:
-    """Create a 'review started' note."""
+def post_progress_note(
+    project_id: Any, mr_iid: Any, note_id: Any | None = None
+) -> dict[str, Any] | None:
+    """Create or update a note to indicate active analysis."""
     if not POST_GITLAB_PROGRESS_NOTE or not project_id or not mr_iid:
         return None
 
-    body = "🤖 Ревью запущено… агенты анализируют изменения."
+    body = "🤖 Анализирую изменения…"
+    if note_id:
+        return update_merge_request_comment(
+            project_id=project_id, mr_iid=mr_iid, note_id=note_id, body=body
+        )
     return post_merge_request_comment(project_id=project_id, mr_iid=mr_iid, body=body)
 
 

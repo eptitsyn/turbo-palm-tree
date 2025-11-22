@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.crew.crew_factory import run_file_diff_review
+from app.crew.gitlab_notes import post_progress_note
 from app.crew.tools.gitlab_tool import (
     fetch_merge_request_changes,
     fetch_merge_request_details,
@@ -66,12 +67,20 @@ def _build_diff_context(
 
 
 @celery_app.task(name="review_merge_request")
-def review_merge_request(project_id: int, mr_iid: int, last_commit_sha: str | None):
+def review_merge_request(
+    project_id: int,
+    mr_iid: int,
+    last_commit_sha: str | None,
+    progress_note_id: str | int | None = None,
+):
     """
-    Реализация Celery‑задачи для MR: тянет diff из GitLab и гоняет crew по каждому файлу.
+    Реализация Celery-задачи для MR: тянет diff из GitLab и гоняет crew по каждому файлу.
     """
     # Ensure tables exist in worker context (dev-friendly; prefer Alembic in prod)
     init_db()
+
+    # Update queued note to show active analysis
+    post_progress_note(project_id=project_id, mr_iid=mr_iid, note_id=progress_note_id)
 
     project_path: str | None = None
     details_resp = fetch_merge_request_details(project_id=project_id, mr_iid=mr_iid)
@@ -108,30 +117,23 @@ def review_merge_request(project_id: int, mr_iid: int, last_commit_sha: str | No
         )
         return result
 
-    findings_by_file: list[dict[str, Any]] = []
-    for change in changes_resp.get("changes", []):
-        diff_ctx = _build_diff_context(
-            change,
-            project_id=project_id,
-            mr_iid=mr_iid,
-            project_path=project_path,
-        )
-        findings = run_file_diff_review(diff_ctx)
-        findings_by_file.append(
-            {
-                "file_path": diff_ctx.get("file_path", ""),
-                "language": diff_ctx.get("language", "unknown"),
-                "findings": findings,
-            }
-        )
+    diff_context = {
+        "project_id": project_id,
+        "mr_iid": mr_iid,
+        "project_path": project_path,
+        "last_commit_sha": last_commit_sha,
+        "changes": changes_resp.get("changes", []),
+        "progress_note_id": progress_note_id,
+    }
+    findings = run_file_diff_review(diff_context)
 
     result = {
         "status": "ok",
         "project_id": project_id,
         "mr_iid": mr_iid,
         "last_commit_sha": last_commit_sha,
-        "files_reviewed": len(findings_by_file),
-        "results": findings_by_file,
+        "files_reviewed": len(changes_resp.get("changes", [])),
+        "results": findings,
     }
     record_review_run(
         project_id=project_id,
@@ -139,6 +141,6 @@ def review_merge_request(project_id: int, mr_iid: int, last_commit_sha: str | No
         last_commit_sha=last_commit_sha,
         project_path=project_path,
         status="ok",
-        findings=findings_by_file,
+        findings=findings,
     )
     return result

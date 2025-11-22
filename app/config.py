@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     LLM_API_BASE: str = "http://localhost:8001"
     LLM_API_KEY: str = "dev-llm-key"
 
+    # crewAI agent controls
+    CREW_AGENT_MAX_ITER: int = 15
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
