@@ -4,12 +4,11 @@ from functools import lru_cache
 from crewai import Agent, LLM
 
 from app.config import settings
-from app.crew.tools.gitlab_tool import post_merge_request_comment
 
 
 @lru_cache(maxsize=1)
 def _default_llm() -> LLM:
-    """Shared LLM configuration for all agents."""
+    """Общая конфигурация LLM для всех агентов."""
     return LLM(
         model=settings.LLM_MODEL_NAME,
         api_key=settings.LLM_API_KEY,
@@ -31,14 +30,14 @@ def _make_agent(role: str, goal: str, backstory: str, **kwargs) -> Agent:
 
 def create_review_orchestrator_agent() -> Agent:
     return _make_agent(
-        role="Review Orchestrator",
+        role="Координатор ревью",
         goal=(
-            "Plan and route the code review, ensuring each specialist agent covers "
-            "its area and that outputs stay within the JSON schema."
+            "Спланируй и распределяй ревью, убедись что каждый профильный агент "
+            "покрывает свою область, а вывод остается в JSON‑схеме."
         ),
         backstory=(
-            "You coordinate AI reviewers, deduplicate overlapping work, and provide "
-            "a concise review plan for the crew to follow."
+            "Ты координируешь AI‑ревьюеров, устраняешь дубли и формируешь сжатый "
+            "план ревью для команды."
         ),
         allow_delegation=False,
     )
@@ -46,28 +45,28 @@ def create_review_orchestrator_agent() -> Agent:
 
 def create_context_builder_agent() -> Agent:
     return _make_agent(
-        role="Context Builder",
+        role="Сборщик контекста",
         goal=(
-            "Normalize the provided diff_context into a structured bundle "
-            "including file metadata, risks, and change summary."
+            "Нормализуй diff_context в структурированный пакет с метаданными "
+            "файла, рисками и кратким описанием изменений."
         ),
         backstory=(
-            "You prepare actionable review context so other agents can focus on "
-            "analysis rather than data gathering."
+            "Ты готовишь пригодный для работы контекст, чтобы другие агенты "
+            "занимались анализом, а не сбором данных."
         ),
     )
 
 
 def create_static_analysis_agent() -> Agent:
     return _make_agent(
-        role="Static Analysis Collector",
+        role="Сборщик статического анализа",
         goal=(
-            "Run or reason about static analysis (ruff, mypy, bandit, eslint, etc.) "
-            "for the provided diff and return normalized findings."
+            "Запусти или сформируй вывод статанализа (ruff, mypy, bandit, eslint и др.) "
+            "для указанного diff и верни нормализованные находки."
         ),
         backstory=(
-            "You specialize in aggregating and normalizing outputs from static "
-            "analysis tools into a unified JSON format."
+            "Ты собираешь и нормализуешь вывод статических инструментов в единый "
+            "JSON‑формат."
         ),
     )
 
@@ -77,70 +76,69 @@ def create_code_reviewer_agent() -> Agent:
     Generalist LLM reviewer focusing on correctness, maintainability, and clarity.
     """
     return _make_agent(
-        role="Senior Code Reviewer",
+        role="Старший ревьюер кода",
         goal=(
-            "Review the given code diff and identify potential issues, "
-            "returning ONLY structured JSON with a list of findings."
+            "Проверь данный diff и найди потенциальные проблемы, "
+            "верни ТОЛЬКО структурированный JSON со списком находок."
         ),
         backstory=(
-            "You are an experienced software engineer responsible for code quality, "
-            "security, and maintainability in a large codebase."
+            "Ты опытный инженер, отвечающий за качество, безопасность и поддержку "
+            "кода в крупной кодовой базе."
         ),
     )
 
 
 def create_security_reviewer_agent() -> Agent:
     return _make_agent(
-        role="Security Specialist",
+        role="Специалист по безопасности",
         goal=(
-            "Detect security vulnerabilities, secret leaks, auth/z gaps, and risky "
-            "dependency or data-handling patterns in the diff. Output JSON findings."
+            "Найди уязвимости, утечки секретов, пробелы в auth/z и рискованные "
+            "шаблоны зависимостей или работы с данными в diff. Вывод — JSON находок."
         ),
         backstory=(
-            "You think like both an attacker and a security engineer, focusing on "
-            "threat models, exploitability, and mitigations."
+            "Ты думаешь как атакующий и как инженер безопасности, фокусируясь на "
+            "моделях угроз, эксплуатируемости и мерах защиты."
         ),
     )
 
 
 def create_performance_reliability_agent() -> Agent:
     return _make_agent(
-        role="Performance & Reliability Reviewer",
+        role="Ревьюер производительности и надежности",
         goal=(
-            "Spot performance regressions, concurrency issues, resource leaks, and "
-            "resilience gaps in the diff. Output JSON findings."
+            "Заметь регрессии по производительности, проблемы конкурентности, "
+            "утечки ресурсов и пробелы в устойчивости в diff. Вывод — JSON находок."
         ),
         backstory=(
-            "You optimize systems for throughput, latency, and stability while "
-            "keeping failure modes in mind."
+            "Ты оптимизируешь системы по пропускной способности, задержке и стабильности, "
+            "держишь в уме сценарии сбоев."
         ),
     )
 
 
 def create_testing_ux_reviewer_agent() -> Agent:
     return _make_agent(
-        role="Testing & UX Reviewer",
+        role="Ревьюер тестирования и UX",
         goal=(
-            "Identify missing or weak tests, flaky patterns, and user-facing/API "
-            "regressions. Output JSON findings plus suggested test cases."
+            "Найди отсутствующие или слабые тесты, флейки и регрессии в UX/API. "
+            "Вывод — JSON находок и предложенные тест-кейсы."
         ),
         backstory=(
-            "You ensure changes are verifiable, well-covered, and considerate of the "
-            "developer or end-user experience."
+            "Ты следишь, чтобы изменения были проверяемыми, хорошо покрытыми и учитывали "
+            "опыт разработчика и конечного пользователя."
         ),
     )
 
 
 def create_report_composer_agent() -> Agent:
     return _make_agent(
-        role="Report Composer",
+        role="Сборщик отчета",
         goal=(
-            "Merge and deduplicate findings from all agents, enforce schema, and "
-            "produce the final structured review output."
+            "Объедини и дедуплицируй находки всех агентов, соблюдай схему и "
+            "сформируй итоговый структурированный отчет."
         ),
         backstory=(
-            "You synthesize results into a concise report with consistent severities, "
-            "clear summaries, and actionable fixes."
+            "Ты собираешь результаты в короткий отчет с единообразными уровнями, "
+            "четкими резюме и применимыми исправлениями."
         ),
-        tools=[post_merge_request_comment],
     )

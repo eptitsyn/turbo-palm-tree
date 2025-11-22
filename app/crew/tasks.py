@@ -4,18 +4,18 @@ from crewai import Agent, Task
 
 def create_review_orchestration_task(agent: Agent | None = None) -> Task:
     description = """
-You coordinate a code review for a single diff_context.
+Ты координируешь ревью кода для одного diff_context.
 
-Input:
+Вход:
 - diff_context: {file_path, language, diff, old_code, new_code}
 
-Your job:
-- Produce a brief plan describing which specialties should focus on which risks.
-- Highlight the riskiest areas and expected failure modes.
-- Keep the output machine-readable.
+Твоя задача:
+- Дай короткий план, какие специализации смотрят на какие риски.
+- Выдели самые рискованные зоны и вероятные сбои.
+- Оставь вывод машинно‑читаемым.
 
-Output:
-Return ONLY JSON:
+Вывод:
+Верни ТОЛЬКО JSON:
 {
   "workplan": ["item 1", "item 2"],
   "risk_profile": "short text",
@@ -36,16 +36,18 @@ def create_context_builder_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Normalize the provided diff_context into a structured bundle for downstream agents.
+Нормализуй diff_context в структурированный пакет для последующих агентов.
 
-Include:
-- file metadata (path, language)
-- summary of change intent and surface area
-- quick risk notes (security/perf/testing)
-- counts of additions/removals
+Включи:
+- метаданные файла (путь, язык)
+- краткую цель изменений и область покрытия
+- быстрые риск‑заметки (security/perf/testing)
+- количество добавлений/удалений
+- если указан repo_url: сделай поверхностный clone, прочитай изменения из MR/коммита,
+  извлеки сигнатуры методов/функций без чтения полных тел, когда возможно.
 
-Output:
-Return ONLY JSON:
+Вывод:
+Верни ТОЛЬКО JSON:
 {
   "file_path": "...",
   "language": "...",
@@ -54,7 +56,8 @@ Return ONLY JSON:
   "stats": {"added_lines": int, "removed_lines": int},
   "diff": "...",
   "old_code": "...",
-  "new_code": "..."
+  "new_code": "...",
+  "signatures": [{"name": "...", "args": ["..."]}]
 }
 """
     return Task(
@@ -70,13 +73,13 @@ def create_static_analysis_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Act as a static analysis collector. If tools are unavailable, reason from the diff.
+Работай как сборщик статанализа. Если инструменты недоступны, рассуждай по diff.
 
-Input:
-- diff_context plus any context provided.
+Вход:
+- diff_context и предоставленный контекст.
 
-Output:
-Return ONLY JSON list of findings:
+Вывод:
+Верни ТОЛЬКО JSON‑список находок:
 [
   {
     "tool": "ruff|mypy|bandit|eslint|reasoned",
@@ -101,36 +104,36 @@ def create_file_diff_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     """
-    Task expects `diff_context` in inputs, which contains:
+    Ожидается `diff_context` во входе, содержит:
         - file_path
         - language
         - diff
         - old_code
         - new_code
 
-    The agent must respond with JSON list of findings.
-    For MVP, we don't enforce strict schema here.
+    Агент должен вернуть JSON‑список находок.
+    В MVP строгую схему не навязываем.
     """
     description = """
-You are given a code change (diff) in a single file.
+Тебе дано изменение кода (diff) одного файла.
 
-Input:
-- file_path: path of the file
-- language: programming language (e.g. python, javascript)
-- diff: unified diff snippet
-- old_code: previous version of the code
-- new_code: new version of the code
+Вход:
+- file_path: путь к файлу
+- language: язык программирования (например python, javascript)
+- diff: unified diff фрагмент
+- old_code: предыдущая версия
+- new_code: новая версия
 
-Your job:
-1. Identify problems in correctness, security, performance, style, and maintainability.
-2. For each problem, produce an item with:
-   - severity: one of ["info", "minor", "major", "critical"]
-   - summary: short one-line description
-   - description: detailed explanation
-   - suggested_fix: how to fix it (optionally code snippet)
+Твоя задача:
+1. Найди проблемы корректности, безопасности, производительности, стиля и поддержки.
+2. На каждую проблему сформируй элемент:
+   - severity: одно из ["info", "minor", "major", "critical"]
+   - summary: краткое одно предложение
+   - description: подробности
+   - suggested_fix: как исправить (опционально код)
 
-Output:
-Return ONLY JSON with a top-level list of findings, for example:
+Вывод:
+Верни ТОЛЬКО JSON с верхнеуровневым списком находок, например:
 
 [
   {
@@ -156,15 +159,15 @@ def create_security_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Perform a security-focused review of the diff_context.
+Проведи ревью с фокусом на безопасность для diff_context.
 
-Consider:
-- auth/z, secrets, cryptography, injection, SSRF, RCE, deserialization, sandboxing
-- data exposure, logging of sensitive data, and supply-chain risks
-- exploitability and mitigations
+Учитывай:
+- auth/z, секреты, криптография, инъекции, SSRF, RCE, десериализация, песочница
+- утечки данных, логирование чувствительных данных, риски цепочки поставок
+- эксплуатируемость и меры защиты
 
-Output:
-Return ONLY JSON list of findings (severity, summary, description, suggested_fix).
+Вывод:
+Верни ТОЛЬКО JSON‑список находок (severity, summary, description, suggested_fix).
 """
     return Task(
         description=description,
@@ -179,15 +182,15 @@ def create_performance_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Perform a performance and reliability review of the diff_context.
+Проведи ревью производительности и надежности diff_context.
 
-Consider:
-- time/space complexity, hot paths, IO, allocations, caching, vectorization
-- concurrency, locking, async usage, race conditions
-- resilience: retries, timeouts, backpressure, resource leaks
+Учитывай:
+- временная/пространственная сложность, горячие пути, IO, аллокации, кеш, векторизацию
+- конкурентность, блокировки, async, гонки
+- устойчивость: ретраи, таймауты, backpressure, утечки ресурсов
 
-Output:
-Return ONLY JSON list of findings (severity, summary, description, suggested_fix).
+Вывод:
+Верни ТОЛЬКО JSON‑список находок (severity, summary, description, suggested_fix).
 """
     return Task(
         description=description,
@@ -202,16 +205,16 @@ def create_testing_review_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Perform a testing and UX/API review of the diff_context.
+Проведи ревью тестирования и UX/API для diff_context.
 
-Consider:
-- missing or weak tests, flaky patterns, boundary cases, negative paths
-- API/CLI contract changes, error messages, logging, telemetry
-- user-facing regressions or documentation gaps
+Учитывай:
+- отсутствующие или слабые тесты, флейки, границы, негативные сценарии
+- изменения контрактов API/CLI, сообщения об ошибках, логирование, телеметрию
+- пользовательские регрессии или пробелы в документации
 
-Output:
-Return ONLY JSON list of findings (severity, summary, description, suggested_fix),
-and include a `suggested_tests` array when relevant.
+Вывод:
+Верни ТОЛЬКО JSON‑список находок (severity, summary, description, suggested_fix)
+и добавь массив `suggested_tests`, когда уместно.
 """
     return Task(
         description=description,
@@ -228,13 +231,13 @@ def create_report_composer_task(
     agent: Agent | None = None, context: list[Task] | None = None
 ) -> Task:
     description = """
-Merge and deduplicate findings from all review tasks. Ensure schema consistency.
+Объедини и дедуплицируй находки всех задач ревью. Соблюдай схему.
 
-Input:
-- outputs from orchestration, context building, static analysis, and all reviewers.
+Вход:
+- выводы оркестрации, контекста, статанализа и всех ревьюеров.
 
-Output:
-Return ONLY JSON:
+Вывод:
+Верни ТОЛЬКО JSON:
 {
   "summary": "short MR-level summary",
   "findings": [
@@ -248,8 +251,8 @@ Return ONLY JSON:
   ]
 }
 
-If `project_id` and `mr_iid` are available in the inputs, you MAY post a short
-MR note using the GitLab comment tool to surface the top findings. Keep it concise.
+Если в inputs есть `project_id` и `mr_iid`, МОЖНО отправить короткую MR‑заметку
+через GitLab comment tool с топ‑находками. Держи ее лаконичной.
 """
     return Task(
         description=description,

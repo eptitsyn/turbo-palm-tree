@@ -26,3 +26,30 @@ def ast_analysis_tool(code: str) -> dict[str, Any]:
         result["error"] = str(e)
 
     return result
+
+
+def extract_method_signatures(code: str) -> list[dict[str, Any]]:
+    """
+    Returns lightweight function/method signature info without full bodies.
+    Useful when agents should avoid reading entire file content.
+    """
+    signatures: list[dict[str, Any]] = []
+    try:
+        tree = ast.parse(code)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                arg_names = [arg.arg for arg in node.args.args]
+                defaults = len(node.args.defaults)
+                signatures.append(
+                    {
+                        "name": node.name,
+                        "args": arg_names,
+                        "defaults": defaults,
+                        "decorators": [getattr(d, "id", None) or getattr(d, "attr", None) for d in node.decorator_list],
+                        "docstring": bool(ast.get_docstring(node)),
+                    }
+                )
+    except Exception as exc:  # noqa: BLE001
+        signatures.append({"error": str(exc)})
+
+    return signatures
