@@ -4,5 +4,5 @@ from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
-# later: import models here so Alembic can see them, e.g.
-# from app.models.project import Project
+# Import models so metadata is populated for migrations/create_all
+from app.models.review import ReviewRun  # noqa: F401,E402

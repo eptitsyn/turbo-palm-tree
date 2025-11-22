@@ -2,12 +2,23 @@
 from crewai import Agent, Task
 
 
-def create_review_orchestration_task(agent: Agent | None = None) -> Task:
+def create_review_orchestration_task(
+    agent: Agent | None = None, context: list[Task] | None = None
+) -> Task:
     description = """
 Ты координируешь ревью кода для одного diff_context.
 
+Текущие входные данные:
+- project_id: {project_id}
+- mr_iid: {mr_iid}
+- project_path: {project_path}
+- diff_context: {diff_context}
+
 Вход:
 - diff_context: {file_path, language, diff, old_code, new_code}
+- project_id: числовой/строковый ID проекта
+- mr_iid: IID merge request
+- project_path: путь проекта в GitLab (если есть)
 
 Твоя задача:
 - Дай короткий план, какие специализации смотрят на какие риски.
@@ -29,6 +40,7 @@ def create_review_orchestration_task(agent: Agent | None = None) -> Task:
         ),
         name="review_orchestration",
         agent=agent,
+        context=context or [],
     )
 
 
@@ -38,11 +50,20 @@ def create_context_builder_task(
     description = """
 Нормализуй diff_context в структурированный пакет для последующих агентов.
 
+Текущие входные данные:
+- project_id: {project_id}
+- mr_iid: {mr_iid}
+- project_path: {project_path}
+- diff_context: {diff_context}
+
 Включи:
 - метаданные файла (путь, язык)
+- идентификаторы MR (project_id, mr_iid) и, если есть, repo_url/project_path
 - краткую цель изменений и область покрытия
 - быстрые риск‑заметки (security/perf/testing)
 - количество добавлений/удалений
+- если переданы project_id и mr_iid: дерни GitLab tool, чтобы получить контекст MR
+  (метаданные, заметки) и включи это в вывод
 - если указан repo_url: сделай поверхностный clone, прочитай изменения из MR/коммита,
   извлеки сигнатуры методов/функций без чтения полных тел, когда возможно.
 
@@ -51,13 +72,16 @@ def create_context_builder_task(
 {
   "file_path": "...",
   "language": "...",
+  "project_id": 123,
+  "mr_iid": 5,
   "change_summary": "...",
   "risk_notes": ["item"],
   "stats": {"added_lines": int, "removed_lines": int},
   "diff": "...",
   "old_code": "...",
   "new_code": "...",
-  "signatures": [{"name": "...", "args": ["..."]}]
+  "signatures": [{"name": "...", "args": ["..."]}],
+  "mr_context": {"title": "...", "notes": ["..."]}
 }
 """
     return Task(

@@ -4,7 +4,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.crew.crew_factory import run_file_diff_review
-from app.crew.tools.gitlab_tool import fetch_merge_request_changes
+from app.crew.tools.gitlab_tool import (
+    fetch_merge_request_changes,
+    fetch_merge_request_details,
+)
+from app.db.session import init_db
+from app.services.review_store import record_review_run
 from app.workers.celery_app import celery_app
 
 
@@ -42,7 +47,10 @@ def _guess_language(path: str | None) -> str:
 
 
 def _build_diff_context(
-    change: dict[str, Any], project_id: int, mr_iid: int
+    change: dict[str, Any],
+    project_id: int,
+    mr_iid: int,
+    project_path: str | None = None,
 ) -> dict[str, Any]:
     file_path = change.get("new_path") or change.get("old_path") or change.get("file_path") or ""
     return {
@@ -53,6 +61,7 @@ def _build_diff_context(
         "new_code": change.get("new_path_content", "") if change.get("new_path_content") else "",
         "project_id": project_id,
         "mr_iid": mr_iid,
+        "project_path": project_path,
     }
 
 
@@ -61,19 +70,52 @@ def review_merge_request(project_id: int, mr_iid: int, last_commit_sha: str | No
     """
     Реализация Celery‑задачи для MR: тянет diff из GitLab и гоняет crew по каждому файлу.
     """
+    # Ensure tables exist in worker context (dev-friendly; prefer Alembic in prod)
+    init_db()
+
+    project_path: str | None = None
+    details_resp = fetch_merge_request_details(project_id=project_id, mr_iid=mr_iid)
+    if details_resp.get("status") == "ok":
+        mr_data = details_resp.get("mr") or {}
+        references = mr_data.get("references") or {}
+        full_ref = references.get("full") or ""
+        if "!" in full_ref:
+            project_path = full_ref.split("!", 1)[0]
+        if not project_path:
+            web_url = mr_data.get("web_url") or ""
+            if "/-/" in web_url:
+                try:
+                    project_path = web_url.split("//", 1)[1].split("/-/", 1)[0].split("/", 1)[1]
+                except Exception:
+                    project_path = None
+
     changes_resp = fetch_merge_request_changes(project_id=project_id, mr_iid=mr_iid)
     if changes_resp.get("status") != "ok":
-        return {
+        result = {
             "status": "error",
             "project_id": project_id,
             "mr_iid": mr_iid,
             "last_commit_sha": last_commit_sha,
             "error": changes_resp,
         }
+        record_review_run(
+            project_id=project_id,
+            mr_iid=mr_iid,
+            last_commit_sha=last_commit_sha,
+            project_path=project_path,
+            status="error",
+            findings=None,
+        )
+        return result
 
     findings_by_file: list[dict[str, Any]] = []
     for change in changes_resp.get("changes", []):
-        diff_ctx = _build_diff_context(change, project_id=project_id, mr_iid=mr_iid)
+        diff_ctx = _build_diff_context(
+            change,
+            project_id=project_id,
+            mr_iid=mr_iid,
+            project_path=project_path,
+        )
         findings = run_file_diff_review(diff_ctx)
         findings_by_file.append(
             {
@@ -83,7 +125,7 @@ def review_merge_request(project_id: int, mr_iid: int, last_commit_sha: str | No
             }
         )
 
-    return {
+    result = {
         "status": "ok",
         "project_id": project_id,
         "mr_iid": mr_iid,
@@ -91,3 +133,12 @@ def review_merge_request(project_id: int, mr_iid: int, last_commit_sha: str | No
         "files_reviewed": len(findings_by_file),
         "results": findings_by_file,
     }
+    record_review_run(
+        project_id=project_id,
+        mr_iid=mr_iid,
+        last_commit_sha=last_commit_sha,
+        project_path=project_path,
+        status="ok",
+        findings=findings_by_file,
+    )
+    return result

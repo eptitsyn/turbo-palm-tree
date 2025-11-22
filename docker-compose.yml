@@ -38,6 +38,7 @@ services:
       uv run celery
       -A app.workers.celery_app.celery_app worker
       --loglevel=INFO
+      --concurrency=${REVIEW_WORKER_CONCURRENCY:-1}
     env_file:
       - .env
     environment:

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     CORS_ALLOW_ORIGINS: list[str] = ["*"]
 
     # DB
+    DATABASE_URL: str | None = "sqlite+pysqlite:///./data/app.db"
     POSTGRES_USER: str = "postgres"
     # Defaults below are for local smoke tests only; override in real deployments.
     POSTGRES_PASSWORD: str = "postgres"
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+    REVIEW_WORKER_CONCURRENCY: int = 1
 
     # GitLab
     GITLAB_BASE_URL: str = "https://gitlab.example.com"

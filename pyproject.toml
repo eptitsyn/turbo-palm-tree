@@ -69,7 +69,6 @@ exclude = ["alembic/"]
 
 [tool.pytest.ini_options]
 pythonpath = ["app"]
-addopts = "--cov=app --cov-report=term-missing"
 
 # ------ mypy ------
 [tool.mypy]

@@ -1,5 +1,9 @@
 # app/api/v1/health.py
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
 
 
 router = APIRouter(tags=["health"])
@@ -11,6 +15,7 @@ async def health():
 
 
 @router.get("/ready")
-async def ready():
-    # later: check DB, Celery, LLM, etc.
+async def ready(db: Session = Depends(get_db)):
+    # Check DB connectivity (simple heartbeat)
+    db.execute(text("SELECT 1"))
     return {"status": "ready"}

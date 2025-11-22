@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.api.v1 import gitlab_webhooks, health, reviews
+from app.db.session import init_db
 
 
 def create_app() -> FastAPI:
@@ -19,6 +21,16 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Include versioned API routers
+    app.include_router(health.router, prefix="/api/v1")
+    app.include_router(gitlab_webhooks.router, prefix="/api/v1")
+    app.include_router(reviews.router, prefix="/api/v1")
+
+    @app.on_event("startup")
+    def _startup() -> None:
+        # Dev-friendly: ensure tables exist; prefer Alembic migrations in prod.
+        init_db()
 
     return app
 

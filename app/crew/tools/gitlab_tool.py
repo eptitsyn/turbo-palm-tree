@@ -58,6 +58,40 @@ def fetch_merge_request_changes(
         return {"status": "error", "error": str(exc), "url": url}
 
 
+def fetch_merge_request_details(
+    project_id: int | str,
+    mr_iid: int | str,
+    *,
+    base_url: str | None = None,
+    token: str | None = None,
+    timeout: float = 8.0,
+) -> dict[str, Any]:
+    """
+    Забирает детали MR (для получения пути репозитория и метаданных).
+    """
+    api_base = _api_base(base_url)
+    api_token = token or settings.GITLAB_TOKEN
+    url = (
+        f"{api_base}/projects/{quote_plus(str(project_id))}"
+        f"/merge_requests/{quote_plus(str(mr_iid))}"
+    )
+    headers = {"Private-Token": api_token}
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code != 200:
+            return {
+                "status": "error",
+                "error": f"GitLab API вернул {resp.status_code}",
+                "body": resp.text,
+                "url": url,
+            }
+        data = resp.json()
+        return {"status": "ok", "mr": data, "url": url}
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "error": str(exc), "url": url}
+
+
 def fetch_merge_request_notes(
     project_id: int | str,
     mr_iid: int | str,

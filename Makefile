@@ -4,6 +4,8 @@ SHELL := /bin/bash
 # Default environment variables
 UV := uv
 PYTHON := uv run python
+PYTEST_ARGS ?= -q --cov=app --cov-report=term-missing
+REVIEW_WORKER_CONCURRENCY ?= 1
 
 # --------------------------------------------------------------------
 # Setup
@@ -42,7 +44,7 @@ typecheck:
 
 .PHONY: test
 test:
-	TESTING=1 $(UV) run pytest -q
+	TESTING=1 $(UV) run pytest $(PYTEST_ARGS)
 
 .PHONY: check
 check: lint typecheck test
@@ -57,7 +59,7 @@ run-api:
 
 .PHONY: worker
 worker:
-	$(UV) run celery -A app.workers.celery_app.celery_app worker --loglevel=INFO
+	$(UV) run celery -A app.workers.celery_app.celery_app worker --loglevel=INFO --concurrency=$(REVIEW_WORKER_CONCURRENCY)
 
 # --------------------------------------------------------------------
 # DB / Alembic

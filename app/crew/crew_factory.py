@@ -5,10 +5,6 @@ from pathlib import Path
 from typing import Any
 
 from crewai import Crew, Process
-from app.crew.tools.gitlab_tool import (
-    post_merge_request_comment,
-    update_merge_request_comment,
-)
 
 from app.crew.agents import (
     create_code_reviewer_agent,
@@ -30,20 +26,27 @@ from app.crew.tasks import (
     create_static_analysis_task,
     create_testing_review_task,
 )
+from app.crew.gitlab_notes import (
+    post_findings_note,
+    post_progress_note,
+    update_progress_note,
+)
 
-# Disable telemetry/remote tracing in constrained environments and place crew storage
-# in a writable temp directory to avoid read-only DB errors.
-os.environ.setdefault("OTEL_SDK_DISABLED", "true")
+# Telemetry/remote tracing: default off, opt-in via CREW_ENABLE_CLOUD_TRACING=true.
+ENABLE_CLOUD_TRACING = os.getenv("CREW_ENABLE_CLOUD_TRACING", "false").lower() == "true"
+if ENABLE_CLOUD_TRACING:
+    os.environ["OTEL_SDK_DISABLED"] = "false"
+    os.environ.setdefault("CREWAI_TRACING_ENABLED", "true")
+else:
+    os.environ.setdefault("OTEL_SDK_DISABLED", "true")
+
+# Place crew storage in a writable temp directory to avoid read-only DB errors.
 os.environ.setdefault(
     "CREWAI_STORAGE_DIR", str(Path(tempfile.gettempdir()) / "crewai_storage")
 )
 USE_STUB_LLM = os.getenv("CREW_USE_STUB_LLM", "false").lower() == "true"
 FALLBACK_TO_STUB_ON_ERROR = (
     os.getenv("CREW_FALLBACK_TO_STUB_ON_ERROR", "true").lower() == "true"
-)
-POST_GITLAB_NOTE = os.getenv("CREW_POST_GITLAB_NOTE", "true").lower() == "true"
-POST_GITLAB_PROGRESS_NOTE = (
-    os.getenv("CREW_POST_GITLAB_PROGRESS_NOTE", "true").lower() == "true"
 )
 
 
@@ -67,64 +70,6 @@ def _stub_findings(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
             "source": "stub",
         }
     ]
-
-
-def _post_gitlab_note(
-    project_id: Any, mr_iid: Any, findings: list[dict[str, Any]]
-) -> dict[str, Any] | None:
-    if not POST_GITLAB_NOTE:
-        return None
-    if not project_id or not mr_iid:
-        return None
-
-    top = findings[:5]
-    lines = [f"Итоги ревью ({len(findings)} всего):"]
-    for item in top:
-        sev = item.get("severity", "info")
-        summary = item.get("summary", "").strip() or "<no summary>"
-        lines.append(f"- [{sev}] {summary}")
-    if len(findings) > len(top):
-        lines.append(f"...и ещё {len(findings) - len(top)}.")
-
-    body = "\n".join(lines)
-    return post_merge_request_comment(
-        project_id=project_id, mr_iid=mr_iid, body=body
-    )
-
-
-def _post_progress_note(project_id: Any, mr_iid: Any) -> dict[str, Any] | None:
-    if not POST_GITLAB_PROGRESS_NOTE or not project_id or not mr_iid:
-        return None
-
-    body = "🤖 Ревью запущено… агенты анализируют изменения."
-    return post_merge_request_comment(project_id=project_id, mr_iid=mr_iid, body=body)
-
-
-def _update_progress_note(
-    project_id: Any,
-    mr_iid: Any,
-    note_id: Any,
-    findings: list[dict[str, Any]],
-) -> dict[str, Any] | None:
-    if not POST_GITLAB_PROGRESS_NOTE or not project_id or not mr_iid or not note_id:
-        return None
-
-    top = findings[:5]
-    lines = ["🤖 Ревью завершено. Находки:"]
-    for item in top:
-        sev = item.get("severity", "info")
-        summary = item.get("summary", "").strip() or "<no summary>"
-        lines.append(f"- [{sev}] {summary}")
-    if len(findings) > len(top):
-        lines.append(f"...и ещё {len(findings) - len(top)}.")
-
-    body = "\n".join(lines)
-    return update_merge_request_comment(
-        project_id=project_id,
-        mr_iid=mr_iid,
-        note_id=note_id,
-        body=body,
-    )
 
 
 def create_review_crew() -> Crew:
@@ -177,7 +122,6 @@ def create_review_crew() -> Crew:
 
     return Crew(
         agents=[
-            orchestrator,
             context_builder,
             static_collector,
             general_reviewer,
@@ -196,8 +140,9 @@ def create_review_crew() -> Crew:
             testing_task,
             report_task,
         ],
-        process=Process.sequential,
-        tracing=False,
+        process=Process.hierarchical,
+        manager_agent=orchestrator,
+        tracing=ENABLE_CLOUD_TRACING,
         verbose=True,
     )
 
@@ -212,7 +157,7 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
     project_id = diff_context.get("project_id")
     mr_iid = diff_context.get("mr_iid")
 
-    progress_note = _post_progress_note(project_id, mr_iid)
+    progress_note = post_progress_note(project_id, mr_iid)
     progress_note_id = None
     if isinstance(progress_note, dict):
         note = progress_note.get("note")
@@ -220,12 +165,18 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
             progress_note_id = note.get("id") or note.get("note_id")
 
     crew = create_review_crew()
+    kickoff_inputs = {
+        "diff_context": diff_context,
+        "project_id": project_id,
+        "mr_iid": mr_iid,
+        "project_path": diff_context.get("project_path"),
+    }
     try:
-        result = crew.kickoff(inputs={"diff_context": diff_context})
+        result = crew.kickoff(inputs=kickoff_inputs)
     except Exception as exc:  # noqa: BLE001
         if USE_STUB_LLM or FALLBACK_TO_STUB_ON_ERROR:
             findings = _stub_findings(diff_context)
-            _update_progress_note(project_id, mr_iid, progress_note_id, findings)
+            update_progress_note(project_id, mr_iid, progress_note_id, findings)
             return findings
         return [
             {
@@ -248,7 +199,9 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
                 "raw_output": result,
             }
         ]
-        note_result = _post_gitlab_note(project_id, mr_iid, findings_list)
+        note_result = post_findings_note(
+            project_id, mr_iid, findings_list, note_id=progress_note_id
+        )
         if note_result and note_result.get("status") != "ok":
             findings_list.append(
                 {
@@ -257,7 +210,7 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
                     "raw_output": str(note_result),
                 }
             )
-        _update_progress_note(project_id, mr_iid, progress_note_id, findings_list)
+        update_progress_note(project_id, mr_iid, progress_note_id, findings_list)
         return findings_list
 
     # Dict → extract findings
@@ -269,16 +222,16 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
             for item in findings:
                 if isinstance(item, dict):
                     out.append(item)
-            note_result = _post_gitlab_note(project_id, mr_iid, out)
+            note_result = post_findings_note(project_id, mr_iid, out, note_id=progress_note_id)
             if note_result and note_result.get("status") != "ok":
                 out.append(
-                {
-                    "severity": "info",
-                    "summary": "Ошибка отправки заметки в GitLab",
-                    "raw_output": str(note_result),
-                }
-            )
-            _update_progress_note(project_id, mr_iid, progress_note_id, out)
+                    {
+                        "severity": "info",
+                        "summary": "Ошибка отправки заметки в GitLab",
+                        "raw_output": str(note_result),
+                    }
+                )
+            update_progress_note(project_id, mr_iid, progress_note_id, out)
             return out
 
         # Unexpected "findings"
@@ -289,16 +242,18 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
                 "raw_output": str(findings),
             }
         ]
-        note_result = _post_gitlab_note(project_id, mr_iid, findings_list)
+        note_result = post_findings_note(
+            project_id, mr_iid, findings_list, note_id=progress_note_id
+        )
         if note_result and note_result.get("status") != "ok":
             findings_list.append(
                 {
                     "severity": "info",
                     "summary": "Ошибка отправки заметки в GitLab",
                     "raw_output": str(note_result),
-                }
-            )
-        _update_progress_note(project_id, mr_iid, progress_note_id, findings_list)
+                    }
+                )
+        update_progress_note(project_id, mr_iid, progress_note_id, findings_list)
         return findings_list
 
     # Completely unexpected type
@@ -309,7 +264,9 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
             "raw_output": str(result),
         }
     ]
-    note_result = _post_gitlab_note(project_id, mr_iid, findings_list)
+    note_result = post_findings_note(
+        project_id, mr_iid, findings_list, note_id=progress_note_id
+    )
     if note_result and note_result.get("status") != "ok":
         findings_list.append(
             {
@@ -318,5 +275,5 @@ def run_file_diff_review(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
                 "raw_output": str(note_result),
             }
         )
-    _update_progress_note(project_id, mr_iid, progress_note_id, findings_list)
+    update_progress_note(project_id, mr_iid, progress_note_id, findings_list)
     return findings_list

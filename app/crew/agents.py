@@ -2,8 +2,14 @@
 from functools import lru_cache
 
 from crewai import Agent, LLM
+from crewai.tools.base_tool import BaseTool
 
 from app.config import settings
+from app.crew.tools.gitlab_tool import (
+    fetch_merge_request_changes,
+    fetch_merge_request_notes,
+)
+from app.crew.tools.repo_tool import clone_repository
 
 
 @lru_cache(maxsize=1)
@@ -28,16 +34,73 @@ def _make_agent(role: str, goal: str, backstory: str, **kwargs) -> Agent:
     )
 
 
+class FetchMergeRequestChangesTool(BaseTool):
+    name: str = "fetch_merge_request_changes"
+    description: str = (
+        "Получает изменения MR из GitLab. Аргументы: project_id, mr_iid."
+    )
+
+    def _run(
+        self,
+        project_id: int | str | None = None,
+        mr_iid: int | str | None = None,
+    ):
+        if project_id is None or mr_iid is None:
+            return {
+                "status": "error",
+                "error": "project_id and mr_iid are required",
+            }
+        return fetch_merge_request_changes(project_id=project_id, mr_iid=mr_iid)
+
+
+class FetchMergeRequestNotesTool(BaseTool):
+    name: str = "fetch_merge_request_notes"
+    description: str = (
+        "Получает список заметок MR из GitLab. Аргументы: project_id, mr_iid."
+    )
+
+    def _run(
+        self,
+        project_id: int | str | None = None,
+        mr_iid: int | str | None = None,
+    ):
+        if project_id is None or mr_iid is None:
+            return {
+                "status": "error",
+                "error": "project_id and mr_iid are required",
+            }
+        return fetch_merge_request_notes(project_id=project_id, mr_iid=mr_iid)
+
+
+class CloneRepositoryTool(BaseTool):
+    name: str = "clone_repository"
+    description: str = (
+        "Клонирует git‑репозиторий и (опционально) переключается на ref. "
+        "Аргументы: repo_url (обязателен), ref, dest_dir, depth."
+    )
+
+    def _run(
+        self,
+        repo_url: str,
+        ref: str | None = None,
+        dest_dir: str | None = None,
+        depth: int = 1,
+    ):
+        return clone_repository(
+            repo_url=repo_url, ref=ref, dest_dir=dest_dir, depth=depth
+        )
+
+
 def create_review_orchestrator_agent() -> Agent:
     return _make_agent(
-        role="Координатор ревью",
+        role="Тимлид ревью MR",
         goal=(
-            "Спланируй и распределяй ревью, убедись что каждый профильный агент "
-            "покрывает свою область, а вывод остается в JSON‑схеме."
+            "Получить входной MR (project_id, mr_iid, project_path), быстро понять риск, "
+            "раскидать задачи по агентам и следить, чтобы вывод был в корректной JSON‑схеме."
         ),
         backstory=(
-            "Ты координируешь AI‑ревьюеров, устраняешь дубли и формируешь сжатый "
-            "план ревью для команды."
+            "Ты тимлид команды AI‑ревьюеров: умеешь быстро читать метаданные MR, "
+            "ставить приоритеты и строго требуешь формального JSON‑вывода без воды."
         ),
         allow_delegation=False,
     )
@@ -45,15 +108,21 @@ def create_review_orchestrator_agent() -> Agent:
 
 def create_context_builder_agent() -> Agent:
     return _make_agent(
-        role="Сборщик контекста",
+        role="Сборщик контекста MR",
         goal=(
-            "Нормализуй diff_context в структурированный пакет с метаданными "
-            "файла, рисками и кратким описанием изменений."
+            "Получить project_id/mr_iid/project_path (или repo_url), сходить в GitLab за MR, "
+            "при необходимости клонировать репозиторий и вернуть нормализованный пакет "
+            "diff_context с рисками и статистикой."
         ),
         backstory=(
-            "Ты готовишь пригодный для работы контекст, чтобы другие агенты "
-            "занимались анализом, а не сбором данных."
+            "Ты инженер платформы: умеешь опрашивать GitLab API, подтягивать заметки и diff, "
+            "делать поверхностный git clone и собирать краткий контекст для остальных."
         ),
+        tools=[
+            CloneRepositoryTool(),
+            FetchMergeRequestChangesTool(),
+            FetchMergeRequestNotesTool(),
+        ],
     )
 
 
@@ -61,12 +130,13 @@ def create_static_analysis_agent() -> Agent:
     return _make_agent(
         role="Сборщик статического анализа",
         goal=(
-            "Запусти или сформируй вывод статанализа (ruff, mypy, bandit, eslint и др.) "
-            "для указанного diff и верни нормализованные находки."
+            "На базе diff_context и метаданных MR сформировать вывод статанализа "
+            "(ruff, mypy, bandit, eslint и др.) или рассуждённые находки, вернуть "
+            "нормализованный JSON."
         ),
         backstory=(
-            "Ты собираешь и нормализуешь вывод статических инструментов в единый "
-            "JSON‑формат."
+            "Ты интегратор инструментов: знаешь правила статанализа и выдаёшь единый "
+            "JSON‑формат для других агентов."
         ),
     )
 
@@ -78,12 +148,12 @@ def create_code_reviewer_agent() -> Agent:
     return _make_agent(
         role="Старший ревьюер кода",
         goal=(
-            "Проверь данный diff и найди потенциальные проблемы, "
-            "верни ТОЛЬКО структурированный JSON со списком находок."
+            "Проверить diff файла и связанные с MR метаданные, найти проблемы "
+            "корректности/поддерживаемости, вернуть ТОЛЬКО JSON списка находок."
         ),
         backstory=(
-            "Ты опытный инженер, отвечающий за качество, безопасность и поддержку "
-            "кода в крупной кодовой базе."
+            "Ты опытный инженер: быстро видишь дефекты, даёшь чёткие резюме и "
+            "формализуешь вывод в JSON."
         ),
     )
 
@@ -92,26 +162,26 @@ def create_security_reviewer_agent() -> Agent:
     return _make_agent(
         role="Специалист по безопасности",
         goal=(
-            "Найди уязвимости, утечки секретов, пробелы в auth/z и рискованные "
-            "шаблоны зависимостей или работы с данными в diff. Вывод — JSON находок."
+            "На основе diff и контекста MR найти уязвимости, утечки секретов, "
+            "пробелы в auth/z и рискованные зависимости. Вывод — JSON находок."
         ),
         backstory=(
-            "Ты думаешь как атакующий и как инженер безопасности, фокусируясь на "
-            "моделях угроз, эксплуатируемости и мерах защиты."
+            "Ты миссек‑инженер и блю‑тимер: думаешь как атакующий, оцениваешь "
+            "эксплуатируемость и предлагаешь mitigations в JSON."
         ),
     )
 
 
 def create_performance_reliability_agent() -> Agent:
     return _make_agent(
-        role="Ревьюер производительности и надежности",
+        role="Ревьюер производительности и надёжности",
         goal=(
-            "Заметь регрессии по производительности, проблемы конкурентности, "
-            "утечки ресурсов и пробелы в устойчивости в diff. Вывод — JSON находок."
+            "Замечать регрессии по производительности, проблемы конкурентности, "
+            "утечки ресурсов и пробелы в устойчивости в diff/MR. Вывод — JSON находок."
         ),
         backstory=(
-            "Ты оптимизируешь системы по пропускной способности, задержке и стабильности, "
-            "держишь в уме сценарии сбоев."
+            "Ты SRE/перф‑инженер: оптимизируешь throughput/latency, знаешь паттерны отказоустойчивости "
+            "и описываешь риски компактно."
         ),
     )
 
@@ -120,25 +190,25 @@ def create_testing_ux_reviewer_agent() -> Agent:
     return _make_agent(
         role="Ревьюер тестирования и UX",
         goal=(
-            "Найди отсутствующие или слабые тесты, флейки и регрессии в UX/API. "
-            "Вывод — JSON находок и предложенные тест-кейсы."
+            "Найти отсутствующие или слабые тесты, флейки и регрессии в UX/API по diff и MR. "
+            "Вывод — JSON находок + предложенные тест-кейсы."
         ),
         backstory=(
-            "Ты следишь, чтобы изменения были проверяемыми, хорошо покрытыми и учитывали "
-            "опыт разработчика и конечного пользователя."
+            "Ты QA/UX‑специалист: заботишься о проверяемости, пользовательских контрактах "
+            "и качестве сообщений об ошибках."
         ),
     )
 
 
 def create_report_composer_agent() -> Agent:
     return _make_agent(
-        role="Сборщик отчета",
+        role="Сборщик отчёта",
         goal=(
-            "Объедини и дедуплицируй находки всех агентов, соблюдай схему и "
-            "сформируй итоговый структурированный отчет."
+            "Объединить и дедуплицировать находки всех агентов, соблюсти схему и "
+            "сформировать итоговый структурированный отчёт в JSON."
         ),
         backstory=(
-            "Ты собираешь результаты в короткий отчет с единообразными уровнями, "
-            "четкими резюме и применимыми исправлениями."
+            "Ты технический писатель/аналитик: умеешь ранжировать, кратко резюмировать "
+            "и выдавать чистый JSON для публикации."
         ),
     )
