@@ -20,17 +20,12 @@ from app.config import settings
 @lru_cache(maxsize=1)
 def _default_llm() -> LLM:
     """Общая конфигурация LLM для всех агентов."""
-    base = settings.LLM_API_BASE
-    parsed = urlparse(base)
-    if parsed.path in ("", "/"):
-        base = urljoin(base.rstrip("/") + "/", "v1/")
     return LLM(
         model=settings.LLM_MODEL_NAME,
         api_key=settings.LLM_API_KEY,
-        base_url=base,
-        api_base=base,
+        api_base=settings.LLM_API_BASE,
         timeout=settings.LLM_TIMEOUT,
-        stream=False,
+        stream=settings.LLM_STREAM_CONNECTION,
         temperature=2.0,
     )
 

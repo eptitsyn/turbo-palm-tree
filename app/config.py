@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     LLM_API_BASE: str = "http://localhost:8001"
     LLM_API_KEY: str = "dev-llm-key"
     LLM_TIMEOUT: float = 30.0
+    LLM_STREAM_CONNECTION: bool = False
 
     # Logging
     LOG_LEVEL: str = "INFO"

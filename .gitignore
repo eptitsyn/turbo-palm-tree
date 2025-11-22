@@ -133,3 +133,4 @@ transformers_cache/
 
 # ignore anything accidentally put into tmp/
 tmp/
+data/
