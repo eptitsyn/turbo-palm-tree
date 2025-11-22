@@ -14,7 +14,6 @@ from app.crew.tools.repo_tool import (
     extract_python_signatures,
     list_repository_files,
 )
-from app.config import settings
 
 
 @lru_cache(maxsize=1)
