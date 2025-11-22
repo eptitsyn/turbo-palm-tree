@@ -247,6 +247,9 @@ Return ONLY JSON:
     }
   ]
 }
+
+If `project_id` and `mr_iid` are available in the inputs, you MAY post a short
+MR note using the GitLab comment tool to surface the top findings. Keep it concise.
 """
     return Task(
         description=description,

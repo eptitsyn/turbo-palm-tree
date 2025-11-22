@@ -4,6 +4,7 @@ from functools import lru_cache
 from crewai import Agent, LLM
 
 from app.config import settings
+from app.crew.tools.gitlab_tool import post_merge_request_comment
 
 
 @lru_cache(maxsize=1)
@@ -141,4 +142,5 @@ def create_report_composer_agent() -> Agent:
             "You synthesize results into a concise report with consistent severities, "
             "clear summaries, and actionable fixes."
         ),
+        tools=[post_merge_request_comment],
     )
