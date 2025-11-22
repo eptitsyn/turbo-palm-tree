@@ -1,6 +1,9 @@
 # app/main.py
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 
 from app.config import settings
 from app.api.v1 import gitlab_webhooks, health, reviews
@@ -8,6 +11,10 @@ from app.db.session import init_db
 
 
 def create_app() -> FastAPI:
+    if settings.LOG_TO_CONSOLE:
+        logger.remove()
+        logger.add(sys.stderr, level=settings.LOG_LEVEL.upper(), enqueue=True)
+
     app = FastAPI(
         title="AI Code Review",
         version="0.1.0",

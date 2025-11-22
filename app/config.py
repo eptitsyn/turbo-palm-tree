@@ -40,9 +40,20 @@ class Settings(BaseSettings):
     LLM_MODEL_NAME: str = "local-llm"
     LLM_API_BASE: str = "http://localhost:8001"
     LLM_API_KEY: str = "dev-llm-key"
+    LLM_TIMEOUT: float = 30.0
+
+    # Logging
+    LOG_LEVEL: str = "INFO"
+    LOG_TO_CONSOLE: bool = True
 
     # crewAI agent controls
     CREW_AGENT_MAX_ITER: int = 15
+    CREW_ENABLE_GIT_TOOLS: bool = True
+    CREW_USE_STUB_LLM: bool = False
+    CREW_FALLBACK_TO_STUB_ON_ERROR: bool = True
+    CREW_POST_GITLAB_NOTE: bool = True
+    CREW_POST_GITLAB_PROGRESS_NOTE: bool = True
+    CREW_CACHE_ENABLED: bool = True  # crew tool-result cache (passed to Crew(cache=...))
 
 
 @lru_cache(maxsize=1)

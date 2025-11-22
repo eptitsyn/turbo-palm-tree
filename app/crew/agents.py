@@ -1,10 +1,10 @@
 # app/crew/agents.py
 from functools import lru_cache
+from urllib.parse import urljoin, urlparse
 
 from crewai import Agent, LLM
 from crewai.tools.base_tool import BaseTool
 
-from app.config import settings
 from app.crew.tools.gitlab_tool import (
     fetch_merge_request_changes,
     fetch_merge_request_notes,
@@ -14,15 +14,23 @@ from app.crew.tools.repo_tool import (
     extract_python_signatures,
     list_repository_files,
 )
+from app.config import settings
 
 
 @lru_cache(maxsize=1)
 def _default_llm() -> LLM:
     """Общая конфигурация LLM для всех агентов."""
+    base = settings.LLM_API_BASE
+    parsed = urlparse(base)
+    if parsed.path in ("", "/"):
+        base = urljoin(base.rstrip("/") + "/", "v1/")
     return LLM(
         model=settings.LLM_MODEL_NAME,
         api_key=settings.LLM_API_KEY,
-        base_url=settings.LLM_API_BASE,
+        base_url=base,
+        api_base=base,
+        timeout=settings.LLM_TIMEOUT,
+        stream=False,
         temperature=2.0,
     )
 
@@ -141,6 +149,19 @@ def create_review_orchestrator_agent() -> Agent:
 
 
 def create_context_builder_agent() -> Agent:
+    tools: list[BaseTool] = [
+        FetchMergeRequestChangesTool(),
+        FetchMergeRequestNotesTool(),
+    ]
+    if settings.CREW_ENABLE_GIT_TOOLS:
+        tools.extend(
+            [
+                CloneRepositoryTool(),
+                ListRepositoryFilesTool(),
+                ExtractPythonSignaturesTool(),
+            ]
+        )
+
     return _make_agent(
         role="Сборщик контекста MR",
         goal=(
@@ -152,13 +173,7 @@ def create_context_builder_agent() -> Agent:
             "Ты инженер платформы: умеешь опрашивать GitLab API, подтягивать заметки и diff, "
             "делать поверхностный git clone и собирать краткий контекст для остальных."
         ),
-        tools=[
-            CloneRepositoryTool(),
-            FetchMergeRequestChangesTool(),
-            FetchMergeRequestNotesTool(),
-            ListRepositoryFilesTool(),
-            ExtractPythonSignaturesTool(),
-        ],
+        tools=tools,
     )
 
 

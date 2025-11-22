@@ -5,7 +5,7 @@
 # ============================================================
 
 # Use same max line length as Black/isort/EditorConfig
-line-length = 100
+line-length = 120
 
 # Target Python version
 target-version = "py311"

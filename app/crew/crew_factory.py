@@ -56,9 +56,6 @@ FALLBACK_TO_STUB_ON_ERROR = (
 )
 CREW_CACHE_ENABLED = os.getenv("CREW_CACHE_ENABLED", "true").lower() == "true"
 
-# Cache a single Crew instance to avoid rebuilding agents/tasks on every call.
-_CREW_CACHE: Crew | None = None
-
 
 def _stub_findings(diff_context: dict[str, Any]) -> list[dict[str, Any]]:
     """Оффлайн-резерв, если LLM недоступен."""
@@ -162,26 +159,13 @@ def _build_review_crew() -> Crew:
         manager_agent=orchestrator,
         tracing=ENABLE_CLOUD_TRACING,
         verbose=True,
+        cache=CREW_CACHE_ENABLED,
     )
 
 
 def create_review_crew() -> Crew:
-    """
-    Create (or reuse) the crew responsible for running code review.
-
-    When CREW_CACHE_ENABLED=true (default), the Crew is cached to avoid
-    reconstructing agents and tasks for every run. Set to false if you
-    need a fresh Crew per invocation (e.g., hot-reload scenarios).
-    """
-    global _CREW_CACHE
-
-    if CREW_CACHE_ENABLED and _CREW_CACHE is not None:
-        return _CREW_CACHE
-
-    crew = _build_review_crew()
-    if CREW_CACHE_ENABLED:
-        _CREW_CACHE = crew
-    return crew
+    """Create the crew responsible for running code review."""
+    return _build_review_crew()
 
 
 def _parse_json_like(raw: Any) -> Any | None:
